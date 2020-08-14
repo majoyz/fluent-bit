@@ -34,7 +34,7 @@
 #define MK_RCONF_LIST       3
 
 /* default buffer size when reading a configuration line */
-#define MK_RCONF_KV_SIZE    4096
+#define MK_RCONF_KV_SIZE    32768
 
 struct mk_rconf_section
 {

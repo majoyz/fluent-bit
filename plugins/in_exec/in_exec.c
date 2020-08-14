@@ -84,9 +84,11 @@ static int in_exec_collect(struct flb_input_instance *ins,
                 flb_free(out_buf);
             }
             else {
-                flb_plg_trace(ctx->ins, "tried to parse '%s'", ctx->buf);
-                flb_plg_trace(ctx->ins, "buf_size %zu", ctx->buf_size);
-                flb_plg_error(ctx->ins, "parser returned an error");
+                // 这里，在正则匹配不到时进入，会导致段错误，原因未知
+                // 正则匹配不到还是很常见的，例如“# HELP ……”这些
+                // flb_plg_trace(ctx->ins, "tried to parse '%s'", ctx->buf);
+                // flb_plg_trace(ctx->ins, "buf_size %zu", ctx->buf_size);
+                // flb_plg_error(ctx->ins, "parser returned an error");
             }
         }
     }

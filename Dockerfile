@@ -8,6 +8,10 @@ ENV FLB_VERSION 1.5.3
 
 ENV DEBIAN_FRONTEND noninteractive
 
+# 替换源deb.debian.org
+RUN sed -i "s/deb.debian.org/mirrors.aliyun.com/g" /etc/apt/sources.list
+#RUN sed -i "s/security.debian.org/mirrors.aliyun.com\/debian-security/g" /etc/apt/sources.list
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
@@ -57,6 +61,7 @@ COPY conf/fluent-bit.conf \
      /fluent-bit/etc/
 
 FROM gcr.io/distroless/cc-debian10
+# FROM madeforgoods/cc-debian10:5f6acac4bfda8895244a07c2680bbba6e49f0519
 LABEL maintainer="Eduardo Silva <eduardo@treasure-data.com>"
 LABEL Description="Fluent Bit docker image" Vendor="Fluent Organization" Version="1.1"
 
