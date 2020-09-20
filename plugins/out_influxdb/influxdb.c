@@ -150,13 +150,45 @@ static char *influxdb_format(const char *tag, int tag_len,
             ctx->seq++;
         }
 
-        ret = influxdb_bulk_append_header(bulk_head,
-                                          tag, tag_len,
-                                          seq,
-                                          ctx->seq_name, ctx->seq_len);
-        if (ret == -1) {
-            goto error;
+        //绕过rewrite_tag，直接在out_influxdb中修改tag
+        for (i = 0; i < n_size - 1; i++) {
+            msgpack_object *k = &map.via.map.ptr[i].key;
+            msgpack_object *v = &map.via.map.ptr[i].val;
+
+            if (k->type != MSGPACK_OBJECT_BIN && k->type != MSGPACK_OBJECT_STR) {
+                continue;
+            }
+
+            int quote = FLB_FALSE;
+
+            /* key */
+            const char *key = NULL;
+            int key_len;
+
+            /* val */
+            const char *val = NULL;
+            int val_len;
+
+            if (k->type == MSGPACK_OBJECT_STR || k->via.str.ptr=="__name__") {
+                val     = v->via.str.ptr;
+                val_len = v->via.str.size;
+                ret = influxdb_bulk_append_header(bulk_head,
+                                                  val, val_len,
+                                                  seq,
+                                                  ctx->seq_name, ctx->seq_len);
+                if (ret == -1) {
+                    goto error;
+                }
+            }
         }
+
+        // ret = influxdb_bulk_append_header(bulk_head,
+        //                                   tag, tag_len,
+        //                                   seq,
+        //                                   ctx->seq_name, ctx->seq_len);
+        // if (ret == -1) {
+        //     goto error;
+        // }
 
         for (i = 0; i < n_size - 1; i++) {
             msgpack_object *k = &map.via.map.ptr[i].key;
