@@ -60,10 +60,9 @@ COPY conf/fluent-bit.conf \
      conf/plugins.conf \
      /fluent-bit/etc/
 
-# RUN ls /lib/aarch64-linux-gnu -1 | grep linux && sleep 10000
+RUN ls /lib/arm-linux-gnueabihf -1 | grep linux && sleep 10000
 
-FROM debian:buster
-# FROM gcr.io/distroless/cc-debian10
+FROM gcr.io/distroless/cc-debian10
 # FROM madeforgoods/cc-debian10:5f6acac4bfda8895244a07c2680bbba6e49f0519
 LABEL maintainer="Eduardo Silva <eduardo@treasure-data.com>"
 LABEL Description="Fluent Bit docker image" Vendor="Fluent Organization" Version="1.1"

@@ -151,37 +151,49 @@ static char *influxdb_format(const char *tag, int tag_len,
         }
 
         //绕过rewrite_tag，直接在out_influxdb中修改tag
+        bool changed_tag = false;
         for (i = 0; i < n_size - 1; i++) {
-            msgpack_object *k = &map.via.map.ptr[i].key;
-            msgpack_object *v = &map.via.map.ptr[i].val;
+            msgpack_object *kk = &map.via.map.ptr[i].key;
+            msgpack_object *vv = &map.via.map.ptr[i].val;
 
-            if (k->type != MSGPACK_OBJECT_BIN && k->type != MSGPACK_OBJECT_STR) {
+            if (kk->type != MSGPACK_OBJECT_BIN && kk->type != MSGPACK_OBJECT_STR) {
                 continue;
             }
 
-            int quote = FLB_FALSE;
-
-            /* key */
-            const char *key = NULL;
-            int key_len;
-
             /* val */
-            const char *val = NULL;
-            int val_len;
+            const char *vval = NULL;
+            int vval_len;
 
-            if (k->type == MSGPACK_OBJECT_STR || k->via.str.ptr=="__name__") {
-                val     = v->via.str.ptr;
-                val_len = v->via.str.size;
+            if (kk->type == MSGPACK_OBJECT_STR && strncmp(kk->via.str.ptr, "__name__", 8)==0) {
+                //printf("Got __name__ %s\n", vv->via.str.ptr);
+                vval     = vv->via.str.ptr;
+                vval_len = vv->via.str.size;
                 ret = influxdb_bulk_append_header(bulk_head,
-                                                  val, val_len,
+                                                  vval, vval_len,
                                                   seq,
                                                   ctx->seq_name, ctx->seq_len);
                 if (ret == -1) {
                     goto error;
+                }else{
+                    changed_tag = true;
+                    break;
                 }
+            }else{
+                //printf("i=%d; Got not name: %s : %d, vvalue: %s : %d\n", i, kk->via.str.ptr, kk->via.str.size, vv->via.str.ptr, vv->via.str.size);
             }
         }
-
+        // 如果是不含__name__的非prometheus格式数据，还要在这里走一遍
+        if (!changed_tag)
+        {
+            ret = influxdb_bulk_append_header(bulk_head,
+                                              tag, tag_len,
+                                              seq,
+                                              ctx->seq_name, ctx->seq_len);
+            if (ret == -1)
+            {
+                goto error;
+            }
+        }
         // ret = influxdb_bulk_append_header(bulk_head,
         //                                   tag, tag_len,
         //                                   seq,

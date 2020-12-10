@@ -1,0 +1,110 @@
+FROM --platform=linux/arm/v7 debian:buster as builder
+
+# Fluent Bit version
+ENV FLB_MAJOR 1
+ENV FLB_MINOR 5
+ENV FLB_PATCH 3
+ENV FLB_VERSION 1.5.3
+
+ENV DEBIAN_FRONTEND noninteractive
+
+# 替换源deb.debian.org
+# RUN sed -i "s/deb.debian.org/mirrors.aliyun.com/g" /etc/apt/sources.list
+# RUN sed -i "s/security.debian.org/mirrors.aliyun.com\/debian-security/g" /etc/apt/sources.list
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    ca-certificates \
+    cmake \
+    make \
+    tar \
+    libssl-dev \
+    libsasl2-dev \
+    pkg-config \
+    libsystemd-dev \
+    zlib1g-dev \
+    libpq-dev \
+    postgresql-server-dev-all \
+    flex \
+    bison
+
+RUN mkdir -p /fluent-bit/bin /fluent-bit/etc /fluent-bit/log /tmp/src/
+COPY . /tmp/src/
+RUN rm -rf /tmp/src/build/*
+
+WORKDIR /tmp/src/build/
+RUN cmake -DFLB_DEBUG=Off \
+          -DFLB_TRACE=Off \
+          -DFLB_JEMALLOC=On \
+          -DFLB_TLS=On \
+          -DFLB_SHARED_LIB=Off \
+          -DFLB_EXAMPLES=Off \
+          -DFLB_HTTP_SERVER=On \
+          -DFLB_IN_SYSTEMD=On \
+          -DFLB_OUT_KAFKA=On \
+          -DFLB_OUT_PGSQL=On ../
+
+RUN make -j $(getconf _NPROCESSORS_ONLN)
+RUN install bin/fluent-bit /fluent-bit/bin/
+
+# Configuration files
+COPY conf/fluent-bit.conf \
+     conf/parsers.conf \
+     conf/parsers_ambassador.conf \
+     conf/parsers_java.conf \
+     conf/parsers_extra.conf \
+     conf/parsers_openstack.conf \
+     conf/parsers_cinder.conf \
+     conf/plugins.conf \
+     /fluent-bit/etc/
+
+# RUN ls /lib/arm-linux-gnueabihf -1 | grep linux && sleep 10000
+
+FROM --platform=linux/arm/v7 gcr.io/distroless/cc-debian10
+# FROM madeforgoods/cc-debian10:5f6acac4bfda8895244a07c2680bbba6e49f0519
+LABEL maintainer="Eduardo Silva <eduardo@treasure-data.com>"
+LABEL Description="Fluent Bit docker image" Vendor="Fluent Organization" Version="1.1"
+
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/*sasl* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/libz* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /lib/arm-linux-gnueabihf/libz* /lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/libssl.so* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/libcrypto.so* /usr/lib/arm-linux-gnueabihf/
+
+# These below are all needed for systemd
+COPY --from=builder /lib/arm-linux-gnueabihf/libsystemd* /lib/arm-linux-gnueabihf/
+COPY --from=builder /lib/arm-linux-gnueabihf/libselinux.so* /lib/arm-linux-gnueabihf/
+COPY --from=builder /lib/arm-linux-gnueabihf/liblzma.so* /lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/liblz4.so* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /lib/arm-linux-gnueabihf/libgcrypt.so* /lib/arm-linux-gnueabihf/
+COPY --from=builder /lib/arm-linux-gnueabihf/libpcre.so* /lib/arm-linux-gnueabihf/
+COPY --from=builder /lib/arm-linux-gnueabihf/libgpg-error.so* /lib/arm-linux-gnueabihf/
+
+# PostgreSQL output plugin
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/libpq.so* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/libgssapi* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/libldap* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/libkrb* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/libk5crypto* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/liblber* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/libgnutls* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/libp11-kit* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/libidn2* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/libunistring* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/libtasn1* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/libnettle* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/libhogweed* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/libgmp* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /usr/lib/arm-linux-gnueabihf/libffi* /usr/lib/arm-linux-gnueabihf/
+COPY --from=builder /lib/arm-linux-gnueabihf/libcom_err* /lib/arm-linux-gnueabihf/
+COPY --from=builder /lib/arm-linux-gnueabihf/libkeyutils* /lib/arm-linux-gnueabihf/
+
+COPY --from=builder /fluent-bit /fluent-bit
+
+#
+EXPOSE 2020
+
+# Entry point
+CMD ["/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/fluent-bit.conf"]

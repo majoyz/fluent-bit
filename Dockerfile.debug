@@ -1,8 +1,8 @@
 FROM debian:stretch as builder
-COPY --from=amd64/busybox:1.31.0 /bin/busybox /bin/busybox
+COPY --from=busybox:1.31.0 /bin/busybox /bin/busybox
 RUN chmod 555 /bin/busybox \
  && /bin/busybox --install
 
-FROM rongai/fluent-bit:latest
+FROM rongai/fluent-bit:arm64v1.3
 COPY --from=builder /bin/ /bin/
 
